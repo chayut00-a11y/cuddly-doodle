@@ -9,18 +9,16 @@ export default function LoginPage() {
   const router = useRouter(); // 2. ประกาศใช้งาน router
 
   useEffect(() => {
-    // 💡 ตรวจสอบสถานะการ Login ทันทีที่หน้าจอโหลดเสร็จ (Client-side Check)
-    // โดยการเช็คว่ามี Cookie หรือสถานะที่ยืนยันว่าเข้าสู่ระบบแล้วหรือไม่
-    const checkLoginStatus = () => {
+    // 💡 เช็คสถานะการล็อกอินจาก Cookie โดยตรงที่ฝั่ง Browser
+    const checkAuth = () => {
       const isLoggedIn = document.cookie.includes("isLoggedIn=true");
-
       if (isLoggedIn) {
-        // ถ้าล็อกอินอยู่แล้ว ให้ดีดไปหน้า /user ทันที
-        router.replace("/user");
+        // หากพบว่าล็อกอินอยู่แล้ว ให้เปลี่ยนหน้าไป /user ทันทีโดยไม่เก็บประวัติหน้า login
+        window.location.replace("/user");
       }
     };
 
-    checkLoginStatus();
+    checkAuth();
   }, [router]);
 
   const handleLogin = async (e) => {
@@ -34,8 +32,7 @@ export default function LoginPage() {
     const data = await res.json();
 
     if (res.ok) {
-      router.push("/user");
-    } else {
+      window.location.replace("/user"); 
       setMessage(data.message || data.error);
     }
   };
