@@ -1,4 +1,5 @@
 import { initDB } from '@/lib/db';
+import { NextResponse } from "next/server";
 
 export async function GET(req) {
   try {
@@ -6,14 +7,37 @@ export async function GET(req) {
     const name = searchParams.get('name') || '';
     const db = await initDB();
 
-    // ⚠️ ช่องโหว่: ใช้ LIKE ร่วมกับการต่อ String ทำให้ทำ UNION-Based Injection ได้ง่าย
-    const query = `SELECT id, username, role FROM users WHERE username LIKE '%${name}%'`;
-    
-    console.log("Executing Search Query:", query);
+    // 1. ตรวจสอบระดับความปลอดภัยจาก Cookie (ถ้าไม่มีให้เป็น 'low' โดยอัตโนมัติ)
+    const securityLevel = req.cookies.get('security_level')?.value || 'low';
 
-    const users = await db.all(query);
-    return Response.json(users);
+    let query;
+    let users;
+
+    if (securityLevel === 'high') {
+      // ✅ โหมดปลอดภัย (High): ใช้ Parameterized Query เพื่อป้องกัน SQL Injection
+      // เครื่องหมาย ? จะถูกแทนที่ด้วยค่าใน array อย่างปลอดภัยโดยฐานข้อมูลเอง
+      query = `SELECT id, username, role FROM users WHERE username LIKE ?`;
+      users = await db.all(query, [`%${name}%`]);
+    } else {
+      // ❌ โหมดอันตราย (Low): ใช้การต่อ String แบบดั้งเดิมที่มีช่องโหว่
+      query = `SELECT id, username, role FROM users WHERE username LIKE '%${name}%'`;
+      users = await db.all(query);
+    }
+    
+    console.log(`[Security: ${securityLevel.toUpperCase()}] Executing:`, query);
+
+    // 2. ปรับการส่งข้อมูลกลับ: ส่งทั้งรายชื่อผู้ใช้ (users) และคำสั่ง SQL ที่รันจริง (executedQuery)
+    // เพื่อให้หน้าบ้านนำไปแสดงผลในกล่องสีดำ (Live Viewer) ได้
+    return NextResponse.json({ 
+      users, 
+      executedQuery: query 
+    });
+
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("Database Error:", error.message);
+    return NextResponse.json(
+      { error: error.message }, 
+      { status: 500 }
+    );
   }
 }

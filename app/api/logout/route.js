@@ -1,14 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function POST() {
-  // สร้าง Response แจ้งว่า Logout สำเร็จ
-  const response = NextResponse.json({ message: "Logout successful" });
+  const response = NextResponse.json({ message: "Logged out" });
 
-  // สั่งให้ Browser ลบ Cookie ชื่อ 'isLoggedIn' โดยการตั้งค่าให้หมดอายุทันที (maxAge: 0)
-  response.cookies.set('isLoggedIn', '', { 
-    path: '/', 
-    maxAge: 0 
-  });
+  // ล้างคุกกี้ทั้งหมดที่เกี่ยวข้อง
+  response.cookies.set("isLoggedIn", "", { maxAge: 0, path: "/" });
+  response.cookies.set("is_auth", "", { maxAge: 0, path: "/" });
+  response.cookies.set("security_level", "", { maxAge: 0, path: "/" });
 
   return response;
 }
