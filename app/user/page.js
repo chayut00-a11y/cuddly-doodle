@@ -1,92 +1,150 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // สำหรับเปลี่ยนหน้า
 
-export default function UsersPage() {
-  const router = useRouter();
+export default function UserDirectory() {
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // ค่าเริ่มต้นเป็นว่าง เพื่อให้ดึงทุกคน
+  const [executedQuery, setExecutedQuery] = useState("");
+  const [securityLevel, setSecurityLevel] = useState("low");
+  const [isMounted, setIsMounted] = useState(false);
 
-  // ✅ 1. นิยามฟังก์ชันไว้ในระดับบนของ Component เพื่อให้ทุกส่วนเรียกใช้ได้
-  const fetchUsers = async (query = "") => {
-    try {
-      const res = await fetch(`/api/users?name=${query}`);
-      const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Fetch error:", error);
-    }
-  };
-
-  // ✅ 2. ใช้ useEffect เรียกใช้ฟังก์ชันด้านบนตอนโหลดหน้าครั้งแรก
   useEffect(() => {
-    const init = async () => {
-      await fetchUsers(); // จะหาฟังก์ชันเจอเพราะนิยามไว้ด้านบนแล้ว
+    const initLab = () => {
+      setIsMounted(true);
+      const savedLevel = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("security_level="))
+        ?.split("=")[1];
+      if (savedLevel) setSecurityLevel(savedLevel);
+
+      // 📝 Log บอกว่าระบบกำลังโหลดข้อมูลทั้งหมด (Initial Load)
+      console.log(
+        "%c 🚀 Initializing Lab: Loading all users... ",
+        "background: #1e293b; color: #38bdf8; font-weight: bold; padding: 5px;",
+      );
     };
-    init();
+
+    const timer = setTimeout(initLab, 0);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleLogout = async () => {
-    const res = await fetch("/api/logout", { method: "POST" });
-    if (res.ok) router.push("/login");
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const fetchData = async () => {
+      const res = await fetch(`/api/users?name=${searchTerm}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        const rawUsers = data.users || [];
+
+        // ✅ เพิ่ม Logic ตรงนี้: กรองให้เหลือ 1 ID ต่อ 1 แถว
+        // ข้อมูลตัวหลัง (Injected Data) จะไปทับข้อมูลตัวหน้า (Original Data)
+        const uniqueUsers = Array.from(
+          new Map(rawUsers.map((user) => [user.id, user])).values(),
+        );
+
+        setUsers(uniqueUsers); // ใช้ข้อมูลที่กรองแล้ว
+        setExecutedQuery(data.executedQuery || "");
+      }
+    };
+
+    fetchData();
+  }, [searchTerm, securityLevel, isMounted]);
+
+  const toggleSecurity = () => {
+    const newLevel = securityLevel === "low" ? "high" : "low";
+
+    // 🛡️ Log แสดงการสลับโหมดความปลอดภัย
+    console.log(
+      `%c 🛡️ [SECURITY UPDATE] Mode: ${newLevel.toUpperCase()} `,
+      `background: ${newLevel === "low" ? "#ff4d4f" : "#52c41a"}; color: white; padding: 5px; border-radius: 4px; font-weight: bold;`,
+    );
+
+    setSecurityLevel(newLevel);
+    document.cookie = `security_level=${newLevel}; Path=/; max-age=3600`;
   };
 
-  // แยกฟังก์ชันสำหรับการกดปุ่ม Search (อันนี้เรียกใช้จากปุ่มโดยตรง ไม่ผ่าน useEffect)
-  const handleSearch = async () => {
-    const res = await fetch(`/api/users?name=${search}`);
-    const data = await res.json();
-    setUsers(Array.isArray(data) ? data : []);
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.replace("/login");
   };
+
+  if (!isMounted) return null;
 
   return (
-    <div className='p-10 bg-gray-50 min-h-screen'>
-      <div className='flex justify-between items-center mb-8'>
-        <h1 className='text-3xl font-bold text-slate-800'>User Directory</h1>
-
-        <button
-          onClick={handleLogout}
-          className='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors shadow-sm'
-        >
-          Log out
-        </button>
-      </div>
-
-      <div className='mb-8 flex gap-2'>
-        <input
-          type='text'
-          placeholder='Search by name...'
-          className='p-2 border rounded w-full max-w-md placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none text-black'
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button
-          onClick={handleSearch}
-          className='bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors'
-        >
-          Search
-        </button>
-      </div>
-
-      <div className='grid grid-cols-1 gap-4'>
-        {users.map((user, idx) => (
-          <div
-            key={idx}
-            className='p-4 bg-white shadow-sm border border-gray-200 rounded-lg flex justify-between items-center'
-          >
-            <div>
-              <p className='font-bold text-lg text-slate-700'>
-                {user.username}
-              </p>
-              <p className='text-sm text-slate-500 italic'>Role: {user.role}</p>
-            </div>
-            {/* แสดงข้อมูลที่อาจถูก Inject ออกมา (เช่น Password) */}
-            {user.password && (
-              <div className='text-red-600 font-mono bg-red-50 p-2 rounded border border-red-100 text-sm'>
-                Injected Data: {user.password}
-              </div>
-            )}
+    <div className='p-8 bg-gray-50 min-h-screen text-black font-sans'>
+      <div className='max-w-4xl mx-auto'>
+        <div className='flex justify-between items-center mb-8'>
+          <h1 className='text-3xl font-extrabold text-blue-900 tracking-tight'>
+            Security Lab: User Directory
+          </h1>
+          <div className='flex gap-3'>
+            <button
+              onClick={toggleSecurity}
+              className={`px-5 py-2 rounded-full font-bold transition-all active:scale-95 shadow-sm ${
+                securityLevel === "low"
+                  ? "bg-red-100 text-red-600 border-2 border-red-500 hover:bg-red-200"
+                  : "bg-green-100 text-green-600 border-2 border-green-500 hover:bg-green-200"
+              }`}
+            >
+              MODE: {securityLevel.toUpperCase()}
+            </button>
+            <button
+              onClick={handleLogout}
+              className='bg-gray-800 text-white px-6 py-2 rounded-full hover:bg-black transition-colors shadow-md'
+            >
+              Logout
+            </button>
           </div>
-        ))}
+        </div>
+
+        {/* 🕵️ Live SQL Viewer */}
+        <div className='bg-slate-900 rounded-xl p-6 mb-8 shadow-2xl border-l-8 border-blue-500'>
+          <h3 className='text-blue-400 text-xs font-bold uppercase mb-3 tracking-widest'>
+            Executed SQL Query (Backend)
+          </h3>
+          <code className='text-green-400 font-mono text-lg break-all'>
+            {executedQuery || "Loading query..."}
+          </code>
+        </div>
+
+        <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-8'>
+          <input
+            type='text'
+            placeholder='ลองใช้ SQL Injection ในโหมด LOW...'
+            className='w-full p-4 mb-8 border-2 border-gray-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg shadow-inner'
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <table className='w-full text-left'>
+            <thead>
+              <tr className='border-b-2 border-gray-100 text-gray-400 uppercase text-xs font-black tracking-widest'>
+                <th className='py-4 px-2'>ID</th>
+                <th className='py-4 px-2'>Username</th>
+                <th className='py-4 px-2 text-red-500'>
+                  Role (Sensitive Data)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(
+                (
+                  user,
+                  index, // 👈 เพิ่ม index เข้ามา
+                ) => (
+                  <tr key={`${user.id}-${index}`} className='...'>
+                    <td className='py-5 px-2'>{user.id}</td>
+                    <td className='py-5 px-2 font-bold'>{user.username}</td>
+                    <td className='py-5 px-2 text-blue-600 font-mono'>
+                      {user.role}
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
