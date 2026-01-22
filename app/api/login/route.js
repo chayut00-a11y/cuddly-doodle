@@ -26,17 +26,24 @@ export async function POST(req) {
         user: { username: user.username, role: user.role },
       });
 
-      // 1. คุกกี้หลักสำหรับ Middleware (มองไม่เห็นจาก JavaScript)
+      // 1. คุกกี้หลักสำหรับ Middleware
       response.cookies.set("isLoggedIn", "true", {
         path: "/",
         httpOnly: true,
         maxAge: 3600,
       });
 
-      // 2. คุกกี้เสริมสำหรับ Client-side Check (JavaScript มองเห็นได้)
+      // 2. คุกกี้เสริมสำหรับ Client-side Check
       response.cookies.set("is_auth", "true", {
         path: "/",
-        httpOnly: false, // ✅ ต้องเป็น false เพื่อให้ useEffect ในหน้า Login อ่านได้
+        httpOnly: false,
+        maxAge: 3600,
+      });
+
+      // 🌟 3. เพิ่มคุกกี้ username เพื่อใช้ใน IDOR Lab
+      response.cookies.set("username", user.username, {
+        path: "/",
+        httpOnly: false, // ✅ ตั้งเป็น false เพื่อให้ตรวจสอบผ่าน Console ได้ง่าย
         maxAge: 3600,
       });
 
