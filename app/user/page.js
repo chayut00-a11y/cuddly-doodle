@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function UserDirectory() {
   const [users, setUsers] = useState([]);
@@ -125,6 +126,7 @@ export default function UserDirectory() {
                 <th className='py-4 px-2 text-red-500'>
                   Role (Sensitive Data)
                 </th>
+                <th className='py-4 px-2'>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -138,6 +140,16 @@ export default function UserDirectory() {
                     <td className='py-5 px-2 font-bold'>{user.username}</td>
                     <td className='py-5 px-2 text-blue-600 font-mono'>
                       {user.role}
+                    </td>
+                    <td className='py-5 px-2'>
+                      {" "}
+                      {/* 👈 2. เพิ่มปุ่ม View Profile */}
+                      <Link
+                        href={`/user/${user.id}`}
+                        className='bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm'
+                      >
+                        View
+                      </Link>
                     </td>
                   </tr>
                 ),
