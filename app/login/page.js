@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; // 1. Import useRouter เพิ่มเข้ามา
 
 export default function LoginPage() {
@@ -7,6 +7,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const router = useRouter(); // 2. ประกาศใช้งาน router
+
+  useEffect(() => {
+    // 💡 ตรวจสอบสถานะการ Login ทันทีที่หน้าจอโหลดเสร็จ (Client-side Check)
+    // โดยการเช็คว่ามี Cookie หรือสถานะที่ยืนยันว่าเข้าสู่ระบบแล้วหรือไม่
+    const checkLoginStatus = () => {
+      const isLoggedIn = document.cookie.includes("isLoggedIn=true");
+
+      if (isLoggedIn) {
+        // ถ้าล็อกอินอยู่แล้ว ให้ดีดไปหน้า /user ทันที
+        router.replace("/user");
+      }
+    };
+
+    checkLoginStatus();
+  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,10 +34,8 @@ export default function LoginPage() {
     const data = await res.json();
 
     if (res.ok) {
-      // ✅ 3. ถ้า Login สำเร็จ (Status 200) ให้เปลี่ยนหน้าไปที่ /user ทันที
       router.push("/user");
     } else {
-      // ❌ ถ้า Login พลาด ให้แสดงข้อความ Error เดิม
       setMessage(data.message || data.error);
     }
   };

@@ -34,6 +34,9 @@ export function middleware(request) {
  * กำหนดขอบเขตการทำงานของ Middleware
  */
 export const config = {
-  // สำคัญมาก: ต้องเพิ่ม '/login' เข้าไปใน matcher เพื่อให้ Middleware ทำงานที่หน้า Login ด้วย
-  matcher: ["/user/:path*", "/login"],
+  matcher: [
+    "/user/:path*",
+    "/login", // ✅ ต้องมีบรรทัดนี้เพื่อให้ Middleware ดักหน้า Login ได้
+    "/", // ✅ หากหน้าแรกของคุณเป็นหน้า Login ให้ใส่ด้วยครับ
+  ],
 };
