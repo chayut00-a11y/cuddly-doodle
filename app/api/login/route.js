@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    // 1. รับข้อมูลจากหน้าบ้าน (Frontend)
     const { username, password } = await req.json();
 
     if (!username || !password) {
@@ -13,48 +12,55 @@ export async function POST(req) {
       );
     }
 
-    // 2. เชื่อมต่อฐานข้อมูล
     const db = await initDB();
 
-    // 3. สร้าง Query แบบเปราะบาง (Vulnerable Query)
-    // ⚠️ มีช่องโหว่ SQL Injection เพราะใช้การต่อ String โดยตรง
-    const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+    // 🔍 1. อ่านค่า Security Level จาก Cookie (ถ้าไม่มีให้เป็น low)
+    const securityLevel = req.cookies.get("security_level")?.value || "low";
 
-    // พิมพ์ Query ออกมาดูใน Terminal/Console Ninja เพื่อวิเคราะห์การโจมตี
-    console.log("Executing Query:", query);
+    let query = "";
+    let user = null;
 
-    // 4. ค้นหาข้อมูลใน Database
-    const user = await db.get(query);
+    // 🛡️ 2. เลือกใช้ SQL ตามระดับความปลอดภัย
+    if (securityLevel === "high") {
+      // ✅ โหมดปลอดภัย: ใช้ Prepared Statements (?)
+      query = "SELECT * FROM users WHERE username = ? AND password = ?";
+      user = await db.get(query, [username, password]);
+    } else {
+      // ⚠️ โหมดเปราะบาง: ใช้ String Interpolation (แบบเดิมที่คุณเขียนไว้)
+      query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+      user = await db.get(query);
+    }
+
+    console.log(`[Mode: ${securityLevel.toUpperCase()}] Executing:`, query);
 
     if (user) {
-      // ✅ กรณี Login สำเร็จ: สร้าง Response พร้อมแนบ Cookie
+      // ✅ Login สำเร็จ: สร้าง Response และคืนค่าข้อมูลพร้อม Query ที่ใช้
       const response = NextResponse.json({
         message: "Login Success",
         user: { username: user.username, role: user.role },
+        executedQuery: query, // ส่งไปแสดงผลใน Lab
+        mode: securityLevel,
       });
 
-      // 1. คุกกี้หลักสำหรับ Middleware
+      // 🌟 ตั้งค่าคุกกี้ครบทั้ง 4 ตัวตามโค้ดเดิมของคุณ
       response.cookies.set("isLoggedIn", "true", {
         path: "/",
         httpOnly: true,
         maxAge: 3600,
       });
 
-      // 2. คุกกี้เสริมสำหรับ Client-side Check
       response.cookies.set("is_auth", "true", {
         path: "/",
         httpOnly: false,
         maxAge: 3600,
       });
 
-      // 🌟 3. เพิ่มคุกกี้ ROLE เพื่อใช้เช็คสิทธิ์ Admin/User (RBAC)
       response.cookies.set("role", user.role, {
         path: "/",
-        httpOnly: false, // ต้องเป็น false เพื่อให้ API อื่นๆ อ่านค่าได้ง่ายใน Lab นี้
+        httpOnly: false,
         maxAge: 3600,
       });
 
-      // 🌟 4. เพิ่มคุกกี้ USERNAME เพื่อใช้ระบุตัวตนในหน้า Profile และ Directory
       response.cookies.set("username", user.username, {
         path: "/",
         httpOnly: false,
@@ -63,15 +69,17 @@ export async function POST(req) {
 
       return response;
     } else {
-      // ❌ กรณี Login ไม่สำเร็จ
+      // ❌ Login ไม่สำเร็จ
       return NextResponse.json(
-        { message: "Invalid username or password" },
+        {
+          message: "Invalid username or password",
+          executedQuery: query,
+          mode: securityLevel,
+        },
         { status: 401 },
       );
     }
   } catch (error) {
-    // 🛠️ กรณีเกิด Error ในระดับ SQL (เช่น Payload ที่ใช้ทำให้ Syntax พัง)
-    // การคืนค่า Error 500 พร้อม message จะช่วยให้เราศึกษาพฤติกรรมของฐานข้อมูลได้
     console.error("Database Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -1,97 +1,135 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // 1. Import useRouter เพิ่มเข้ามา
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [executedQuery, setExecutedQuery] = useState("");
   const [message, setMessage] = useState("");
-  const router = useRouter(); // 2. ประกาศใช้งาน router
+  const router = useRouter();
+  const [level, setLevel] = useState(() => {
+    // ตรวจสอบว่ารันบน Browser หรือไม่ (ป้องกัน Error ใน Next.js SSR)
+    if (typeof document !== "undefined") {
+      return (
+        document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("security_level="))
+          ?.split("=")[1] || "low"
+      );
+    }
+    return "low";
+  });
 
-  useEffect(() => {
-    // 💡 เช็คสถานะการล็อกอินจาก Cookie โดยตรงที่ฝั่ง Browser
-    const checkAuth = () => {
-      const isLoggedIn = document.cookie.includes("isLoggedIn=true");
-      if (isLoggedIn) {
-        // หากพบว่าล็อกอินอยู่แล้ว ให้เปลี่ยนหน้าไป /user ทันทีโดยไม่เก็บประวัติหน้า login
-        window.location.replace("/user");
-      }
-    };
+  // ฟังก์ชันสลับโหมด (Low <-> High)
+  const toggleSecurity = () => {
+    const newLevel = level === "low" ? "high" : "low";
+    setLevel(newLevel);
+    document.cookie = `security_level=${newLevel}; path=/; max-age=3600`;
+    setExecutedQuery(""); // ล้างค่า Query เก่าเวลาสลับโหมด
+    setMessage("");
+  };
 
-    checkAuth();
-  }, [router]);
-
+  // ฟังก์ชัน Login
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMessage(""); // ล้างข้อความเก่าก่อนเริ่มส่งใหม่
-
-    // 🛡️ 1. เพิ่มการเช็คค่าว่าง (Frontend Required Check)
-    // ตรงนี้จะป้องกันไม่ให้ User กด Login ได้ถ้าไม่พิมพ์อะไรเลย
-    if (!username || !password) {
-      setMessage("กรุณากรอกชื่อผู้ใช้และรหัสผ่านให้ครบถ้วน");
-      return; // หยุดการทำงาน ไม่ส่งไปที่ Server
-    }
+    setMessage("");
 
     try {
       const res = await fetch("/api/login", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
+      setExecutedQuery(data.executedQuery); // 🌟 รับ Query จาก Backend มาโชว์
 
       if (res.ok) {
-        // ✅ กรณีสำเร็จ (รวมถึงกรณีที่ใช้ SQL Injection เจาะผ่าน)
-        window.location.replace("/user");
+        // ถ้า Login สำเร็จ ให้รอแป๊บนึงก่อนไปหน้าถัดไปเพื่อให้ User เห็น Query
+        setTimeout(() => router.push("/user"), 1000);
       } else {
-        // ❌ กรณีรหัสผิด หรือ Server ตีกลับ (400, 401, 500)
-        setMessage(data.message || data.error || "เกิดข้อผิดพลาดในการล็อกอิน");
+        setMessage(data.message || "Login Failed");
       }
-    } catch (err) {
-      // 🛠️ แก้ปัญหา Warning 'err' is defined but never used เรียบร้อย
-      console.error("Connection Error:", err);
-      setMessage("ไม่สามารถเชื่อมต่อกับ Server ได้");
+    } catch (error) {
+      console.log(error)
+      setMessage("An error occurred. Check console.");
     }
   };
 
   return (
-    <div className='flex flex-col items-center justify-center min-h-screen bg-gray-50 text-black'>
-      <form
-        onSubmit={handleLogin}
-        className='p-8 bg-white shadow-xl rounded-2xl w-full max-w-md border border-gray-100'
-      >
-        <h2 className='text-3xl font-black mb-8 text-center text-blue-900'>
-          Security Lab
-        </h2>
-
-        {/* 🚨 แสดงข้อความแจ้งเตือนเมื่อมี Error */}
-        {message && (
-          <div className='mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-md text-sm font-bold animate-pulse'>
-            ⚠️ {message}
-          </div>
-        )}
-
-        <div className='space-y-4'>
-          <input
-            type='text'
-            placeholder='Username'
-            required
-            className='w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all'
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            type='password'
-            placeholder='Password'
-            required
-            className='w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all'
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button className='w-full bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-lg cursor-pointer'>
-            Login
+    <div className='min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4'>
+      <div className='w-full max-w-md bg-white rounded-lg shadow-md p-8'>
+        {/* ส่วนหัวและปุ่ม Toggle */}
+        <div className='flex justify-between items-center mb-8'>
+          <h1 className='text-2xl font-bold text-gray-800'>
+            Security Login Lab
+          </h1>
+          <button
+            onClick={toggleSecurity}
+            className={`px-4 py-1 rounded-full text-xs font-black transition-all ${
+              level === "low"
+                ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                : "bg-green-500 hover:bg-green-600 text-white"
+            }`}
+          >
+            MODE: {level.toUpperCase()}
           </button>
         </div>
-      </form>
+
+        <form onSubmit={handleLogin} className='space-y-6'>
+          <div>
+            <label className='block text-sm font-medium text-gray-700'>
+              Username
+            </label>
+            <input
+              type='text'
+              required
+              className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black'
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className='block text-sm font-medium text-gray-700'>
+              Password
+            </label>
+            <input
+              type='password'
+              required
+              className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black'
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <button
+            type='submit'
+            className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none'
+          >
+            Sign in
+          </button>
+        </form>
+
+        {message && (
+          <div className='mt-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded text-sm text-center'>
+            {message}
+          </div>
+        )}
+      </div>
+
+      {/* 🖥️ กล่องแสดงผล SQL (หัวใจของ Lab นี้) */}
+      {executedQuery && (
+        <div className='w-full max-w-md mt-6 p-4 bg-gray-900 rounded-lg border-t-4 border-blue-500 shadow-xl'>
+          <div className='flex justify-between items-center mb-2'>
+            <span className='text-blue-400 text-xs font-bold uppercase tracking-widest'>
+              Backend Execution Log
+            </span>
+            <span className='text-gray-500 text-[10px] font-mono'>SQLITE3</span>
+          </div>
+          <div className='bg-black p-3 rounded border border-gray-800 font-mono text-sm text-green-400 break-all'>
+            <span className='text-gray-600'>$ </span>
+            {executedQuery}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

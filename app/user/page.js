@@ -76,10 +76,10 @@ export default function UserDirectory() {
           <div className='flex gap-3'>
             <button
               onClick={toggleSecurity}
-              className={`px-5 py-2 rounded-full font-bold transition-all active:scale-95 shadow-sm ${
+              className={`px-4 py-1 rounded-full text-xs font-black transition-all ${
                 securityLevel === "low"
-                  ? "bg-red-100 text-red-600 border-2 border-red-500 hover:bg-red-200"
-                  : "bg-green-100 text-green-600 border-2 border-green-500 hover:bg-green-200"
+                  ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                  : "bg-green-500 hover:bg-green-600 text-white"
               }`}
             >
               MODE: {securityLevel.toUpperCase()}
