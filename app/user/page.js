@@ -37,15 +37,8 @@ export default function UserDirectory() {
       const data = await res.json();
 
       if (res.ok) {
-        const rawUsers = data.users || [];
-
-        // ✅ เพิ่ม Logic ตรงนี้: กรองให้เหลือ 1 ID ต่อ 1 แถว
-        // ข้อมูลตัวหลัง (Injected Data) จะไปทับข้อมูลตัวหน้า (Original Data)
-        const uniqueUsers = Array.from(
-          new Map(rawUsers.map((user) => [user.id, user])).values(),
-        );
-
-        setUsers(uniqueUsers); // ใช้ข้อมูลที่กรองแล้ว
+        // 🚀 เอา Map Deduplication ออก เพื่อให้เห็นผลลัพธ์จริงจาก SQL Injection
+        setUsers(data.users || []);
         setExecutedQuery(data.executedQuery || "");
       }
     };
