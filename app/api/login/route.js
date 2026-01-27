@@ -6,6 +6,13 @@ export async function POST(req) {
     // 1. รับข้อมูลจากหน้าบ้าน (Frontend)
     const { username, password } = await req.json();
 
+    if (!username || !password) {
+      return NextResponse.json(
+        { message: "Username and Password are required!" },
+        { status: 400 },
+      );
+    }
+
     // 2. เชื่อมต่อฐานข้อมูล
     const db = await initDB();
 
