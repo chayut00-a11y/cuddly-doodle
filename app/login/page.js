@@ -8,8 +8,9 @@ export default function LoginPage() {
   const [executedQuery, setExecutedQuery] = useState("");
   const [message, setMessage] = useState("");
   const router = useRouter();
+
+  // 1. ดึงค่าโหมดจาก Cookie แบบปลอดภัย (Lazy Initialization)
   const [level, setLevel] = useState(() => {
-    // ตรวจสอบว่ารันบน Browser หรือไม่ (ป้องกัน Error ใน Next.js SSR)
     if (typeof document !== "undefined") {
       return (
         document.cookie
@@ -26,7 +27,7 @@ export default function LoginPage() {
     const newLevel = level === "low" ? "high" : "low";
     setLevel(newLevel);
     document.cookie = `security_level=${newLevel}; path=/; max-age=3600`;
-    setExecutedQuery(""); // ล้างค่า Query เก่าเวลาสลับโหมด
+    setExecutedQuery("");
     setMessage("");
   };
 
@@ -43,93 +44,117 @@ export default function LoginPage() {
       });
 
       const data = await res.json();
-      setExecutedQuery(data.executedQuery); // 🌟 รับ Query จาก Backend มาโชว์
+      setExecutedQuery(data.executedQuery);
 
       if (res.ok) {
-        // ถ้า Login สำเร็จ ให้รอแป๊บนึงก่อนไปหน้าถัดไปเพื่อให้ User เห็น Query
+        // ให้เวลา User ดู SQL Success แป๊บนึงก่อนไปหน้าถัดไป
         setTimeout(() => router.push("/user"), 1000);
       } else {
-        setMessage(data.message || "Login Failed");
+        setMessage(data.message || "Access Denied: Invalid Credentials");
       }
     } catch (error) {
       console.log(error)
-      setMessage("An error occurred. Check console.");
+      setMessage("System Error: Check Backend Connection");
     }
   };
 
   return (
-    <div className='min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4'>
-      <div className='w-full max-w-md bg-white rounded-lg shadow-md p-8'>
-        {/* ส่วนหัวและปุ่ม Toggle */}
-        <div className='flex justify-between items-center mb-8'>
-          <h1 className='text-2xl font-bold text-gray-800'>
-            Security Login Lab
-          </h1>
-          <button
-            onClick={toggleSecurity}
-            className={`px-4 py-1 rounded-full text-xs font-black transition-all ${
-              level === "low"
-                ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
-                : "bg-green-500 hover:bg-green-600 text-white"
-            }`}
-          >
-            MODE: {level.toUpperCase()}
-          </button>
-        </div>
-
-        <form onSubmit={handleLogin} className='space-y-6'>
-          <div>
-            <label className='block text-sm font-medium text-gray-700'>
-              Username
-            </label>
-            <input
-              type='text'
-              required
-              className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black'
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium text-gray-700'>
-              Password
-            </label>
-            <input
-              type='password'
-              required
-              className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black'
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <button
-            type='submit'
-            className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none'
-          >
-            Sign in
-          </button>
-        </form>
-
-        {message && (
-          <div className='mt-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded text-sm text-center'>
-            {message}
-          </div>
-        )}
+    <div className='min-h-screen bg-[#0a0f1e] text-slate-200 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans'>
+      {/* 🌌 Background Elements (แสงฟุ้งๆ หลังพื้นหลัง) */}
+      <div className='fixed top-0 left-0 w-full h-full -z-10'>
+        <div className='absolute top-[20%] left-[-10%] w-[45%] h-[45%] bg-blue-600/10 rounded-full blur-[120px]'></div>
+        <div className='absolute bottom-[20%] right-[-10%] w-[45%] h-[45%] bg-indigo-600/10 rounded-full blur-[120px]'></div>
       </div>
 
-      {/* 🖥️ กล่องแสดงผล SQL (หัวใจของ Lab นี้) */}
-      {executedQuery && (
-        <div className='w-full max-w-md mt-6 p-4 bg-gray-900 rounded-lg border-t-4 border-blue-500 shadow-xl'>
-          <div className='flex justify-between items-center mb-2'>
-            <span className='text-blue-400 text-xs font-bold uppercase tracking-widest'>
-              Backend Execution Log
-            </span>
-            <span className='text-gray-500 text-[10px] font-mono'>SQLITE3</span>
+      <div className='w-full max-w-md space-y-8'>
+        {/* 📟 Main Login Card (Glassmorphism) */}
+        <div className='backdrop-blur-2xl bg-white/5 border border-white/10 rounded-[2.5rem] p-10 shadow-2xl relative'>
+          <div className='flex justify-between items-start mb-10'>
+            <div>
+              <h1 className='text-3xl font-black text-white tracking-tighter uppercase'>
+                Gateway
+              </h1>
+              <p className='text-[10px] font-mono text-blue-500 uppercase tracking-[0.3em]'>
+                Identity Access Management
+              </p>
+            </div>
+            <button
+              onClick={toggleSecurity}
+              className={`px-4 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${
+                level === "low"
+                  ? "bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
+                  : "bg-green-500/10 text-green-400 border-green-500/30"
+              }`}
+            >
+              {level.toUpperCase()}
+            </button>
           </div>
-          <div className='bg-black p-3 rounded border border-gray-800 font-mono text-sm text-green-400 break-all'>
-            <span className='text-gray-600'>$ </span>
-            {executedQuery}
-          </div>
+
+          <form onSubmit={handleLogin} className='space-y-6'>
+            <div className='group'>
+              <label className='text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2 block'>
+                Username
+              </label>
+              <input
+                type='text'
+                required
+                className='w-full bg-black/30 border border-white/5 rounded-2xl py-4 px-5 text-white placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all'
+                placeholder='Enter identifier...'
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+
+            <div className='group'>
+              <label className='text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2 block'>
+                Password
+              </label>
+              <input
+                type='password'
+                required
+                className='w-full bg-black/30 border border-white/5 rounded-2xl py-4 px-5 text-white placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all'
+                placeholder='••••••••'
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            <button
+              type='submit'
+              className='w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] cursor-pointer mt-4 uppercase tracking-widest text-sm'
+            >
+              Authenticate
+            </button>
+          </form>
+
+          {message && (
+            <div className='mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs font-bold text-center'>
+              ⚠️ {message}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* 🖥️ SQL Execution Log (Console Style) */}
+        {executedQuery && (
+          <div className='backdrop-blur-md bg-black/60 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500'>
+            <div className='bg-white/5 px-6 py-3 border-b border-white/5 flex justify-between items-center'>
+              <span className='text-[10px] font-bold text-blue-400 uppercase tracking-widest'>
+                Backend Command Log
+              </span>
+              <div className='flex gap-1'>
+                <div className='w-1.5 h-1.5 rounded-full bg-blue-500/50'></div>
+                <div className='w-1.5 h-1.5 rounded-full bg-blue-500/30'></div>
+              </div>
+            </div>
+            <div className='p-6 font-mono text-sm leading-relaxed flex gap-3 items-start'>
+              <span className='text-blue-500 font-bold shrink-0'>❯</span>
+              <code className='text-green-400 break-all'>{executedQuery}</code>
+            </div>
+          </div>
+        )}
+
+        <p className='text-center text-[10px] text-slate-600 font-mono uppercase tracking-[0.2em]'>
+          Authorized Personnel Only • Secure Session v2.4
+        </p>
+      </div>
     </div>
   );
 }

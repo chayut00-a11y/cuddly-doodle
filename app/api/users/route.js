@@ -2,6 +2,9 @@ import { initDB } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
+  // ประกาศตัวแปรไว้ข้างนอก try เพื่อให้ catch เรียกใช้ได้
+  let query = "";
+
   try {
     const { searchParams } = new URL(req.url);
     const name = searchParams.get("name") || "";
@@ -18,12 +21,11 @@ export async function GET(req) {
       });
     }
 
-    const isAdmin = userRole === "administrator"; // เช็คจาก Role แทนชื่อแล้ว
-    let query;
+    const isAdmin = userRole === "administrator";
     let users;
 
+    // --- ส่วนการสร้าง Query (เหมือนเดิมของคุณ) ---
     if (securityLevel === "high") {
-      // ✅ โหมด HIGH: ใช้สิทธิ์ตาม Role (RBAC)
       if (isAdmin) {
         query = `SELECT id, username, role FROM users WHERE username LIKE ?`;
         users = await db.all(query, [`%${name}%`]);
@@ -32,7 +34,6 @@ export async function GET(req) {
         users = await db.all(query, [loggedInUser, `%${name}%`]);
       }
     } else {
-      // ❌ โหมด LOW: มีช่องโหว่ SQL Injection
       if (isAdmin) {
         query = `SELECT id, username, role FROM users WHERE username LIKE '%${name}%'`;
       } else {
@@ -44,8 +45,19 @@ export async function GET(req) {
       users = await db.all(query);
     }
 
+    // กรณีสำเร็จ
     return NextResponse.json({ users, executedQuery: query });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // ✅ จุดสำคัญ: เมื่อ SQL พัง ให้ส่ง query ที่ "ต้นเหตุ" กลับไปด้วย
+    console.error("SQL Error:", error.message);
+
+    return NextResponse.json(
+      {
+        users: [],
+        executedQuery: query, // ส่งคำสั่งที่พังกลับไปโชว์ที่หน้าบ้าน
+        error: error.message,
+      },
+      { status: 500 },
+    );
   }
 }
