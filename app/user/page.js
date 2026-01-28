@@ -9,7 +9,7 @@ export default function UserDirectory() {
   const [securityLevel, setSecurityLevel] = useState("low");
   const [isMounted, setIsMounted] = useState(false);
 
-  // ✅ 1. แก้ Hydration Error: ตั้งค่าเริ่มต้นเมื่อ Mounted บน Browser แล้วเท่านั้น
+  // ✅ 1. Hydration Guard: ตั้งค่าเริ่มต้นเมื่อ Mounted บน Browser แล้วเท่านั้น
   useEffect(() => {
     const initLab = () => {
       setIsMounted(true);
@@ -20,17 +20,16 @@ export default function UserDirectory() {
       if (savedLevel) setSecurityLevel(savedLevel);
 
       console.log(
-        "%c 🚀 Initializing Lab: Ready for SQL Injection testing... ",
-        "background: #1e293b; color: #38bdf8; font-weight: bold; padding: 5px;",
+        "%c 🚀 Security Lab Initialized: System Ready ",
+        "background: #1e293b; color: #38bdf8; font-weight: bold; padding: 5px; border-radius: 4px;",
       );
     };
 
-    // ใช้การเรียกฟังก์ชันโดยตรงหรือเลื่อนเวลาเล็กน้อยเพื่อให้ Hydration นิ่ง
     const timer = setTimeout(initLab, 0);
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ 2. Real-time SQL Log Fix: หัวใจสำคัญที่ทำให้ Log เปลี่ยนตามนิ้วพิมพ์
+  // ✅ 2. Real-time SQL Log + Debounce Fix
   useEffect(() => {
     if (!isMounted) return;
 
@@ -39,8 +38,7 @@ export default function UserDirectory() {
         const res = await fetch(`/api/users?name=${searchTerm}`);
         const data = await res.json();
 
-        // 🔥 จุดที่ FIX: อัปเดต SQL Log เสมอไม่ว่าจะรันผ่าน (200) หรือพัง (500)
-        // บรรทัดนี้จะทำให้ตัวหนังสือสีเขียวในกล่องดำเปลี่ยนตามที่คุณพิมพ์ทันที
+        // 🔥 FIX: อัปเดต SQL Log เสมอไม่ว่าจะ Status 200 หรือ 500
         if (data.executedQuery) {
           setExecutedQuery(data.executedQuery);
         }
@@ -48,15 +46,19 @@ export default function UserDirectory() {
         if (res.ok) {
           setUsers(data.users || []);
         } else {
-          // ❌ ถ้าพัง (เช่น ORDER BY เกินจำนวนคอลัมน์) ให้ล้างตารางทิ้ง
-          setUsers([]);
+          setUsers([]); // ถ้าพัง (SQL Error) ให้ล้างตารางทิ้ง
         }
       } catch (error) {
         console.error("Fetch error:", error);
       }
     };
 
-    fetchData();
+    // ⏱️ Debounce: รอให้หยุดพิมพ์ 300ms ค่อยยิง API (ช่วยให้ระบบลื่นไหลขึ้น)
+    const delayDebounce = setTimeout(() => {
+      fetchData();
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
   }, [searchTerm, securityLevel, isMounted]);
 
   const toggleSecurity = () => {
@@ -81,14 +83,14 @@ export default function UserDirectory() {
       </div>
 
       <div className='max-w-5xl mx-auto space-y-6'>
-        {/* 📟 Header Section */}
+        {/* 📟 Header Section (Glassmorphism) */}
         <div className='backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2.5rem] p-6 flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl'>
           <div className='flex items-center gap-4'>
             <div className='w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-blue-600/20'>
               📁
             </div>
             <div>
-              <h1 className='text-3xl font-black tracking-tight text-white leading-tight uppercase'>
+              <h1 className='text-3xl font-black tracking-tight text-white uppercase'>
                 Security Lab
               </h1>
               <p className='text-xs font-mono text-blue-500 uppercase tracking-widest'>
@@ -132,34 +134,22 @@ export default function UserDirectory() {
           <div className='p-6 font-mono text-lg leading-relaxed flex items-start'>
             <span className='text-blue-500 mr-3 shrink-0'>❯</span>
             <code className='text-green-400 break-all'>
-              {executedQuery || "Waiting for database command..."}
+              {executedQuery || "Waiting for system command..."}
             </code>
           </div>
         </div>
 
-        {/* 🔍 Interactive Search Area */}
+        {/* 🔍 Search Area & Data Table */}
         <div className='backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl'>
           <div className='relative mb-10 group'>
             <input
               type='text'
               placeholder='Try: admin" OR "1"="1" -- หรือ ORDER BY...'
-              className='w-full bg-black/20 border-2 border-white/5 rounded-2xl py-5 px-6 text-white text-lg placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner'
+              className='w-full bg-black/20 border-2 border-white/5 rounded-2xl py-5 px-6 text-white text-lg placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner'
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <div className='absolute right-6 top-5 text-blue-500/30 group-hover:text-blue-500 transition-colors'>
-              <svg
-                className='w-6 h-6'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth='2'
-                  d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                />
-              </svg>
+              🔎
             </div>
           </div>
 
@@ -180,7 +170,7 @@ export default function UserDirectory() {
                     className='group bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-300'
                   >
                     <td className='py-5 px-4 rounded-l-2xl font-mono text-blue-500/50 group-hover:text-blue-400'>
-                      #00{user.id}
+                      #{user.id}
                     </td>
                     <td className='py-5 px-4 font-bold text-white'>
                       {user.username}
@@ -199,7 +189,7 @@ export default function UserDirectory() {
                     <td className='py-5 px-4 text-right rounded-r-2xl'>
                       <Link
                         href={`/user/${user.id}`}
-                        className='inline-flex items-center gap-2 bg-white/5 hover:bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg border border-white/10 hover:border-blue-500'
+                        className='inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg border border-white/10 hover:border-blue-500'
                       >
                         Profile <span>→</span>
                       </Link>
@@ -211,10 +201,10 @@ export default function UserDirectory() {
           </div>
 
           {users.length === 0 && (
-            <div className='text-center py-20 bg-black/10 rounded-[2rem] border border-dashed border-white/5'>
+            <div className='text-center py-24 bg-black/10 rounded-[2rem] border border-dashed border-white/5'>
               <div className='text-4xl mb-4 opacity-20'>📡</div>
-              <p className='text-slate-500 font-mono text-sm uppercase tracking-widest animate-pulse'>
-                Scanning database... No data records or Execution Error.
+              <p className='text-slate-500 font-mono text-xs uppercase tracking-widest animate-pulse'>
+                Scanning database... No data records found
               </p>
             </div>
           )}
