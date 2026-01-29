@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 export default function UserDirectory() {
@@ -9,57 +9,43 @@ export default function UserDirectory() {
   const [securityLevel, setSecurityLevel] = useState("low");
   const [isMounted, setIsMounted] = useState(false);
 
-  // ✅ 1. Hydration Guard: ตั้งค่าเริ่มต้นเมื่อ Mounted บน Browser แล้วเท่านั้น
   useEffect(() => {
-    const initLab = () => {
-      setIsMounted(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+    const getInitialSecurity = () => {
       const savedLevel = document.cookie
         .split("; ")
         .find((row) => row.startsWith("security_level="))
         ?.split("=")[1];
       if (savedLevel) setSecurityLevel(savedLevel);
-
-      console.log(
-        "%c 🚀 Security Lab Initialized: System Ready ",
-        "background: #1e293b; color: #38bdf8; font-weight: bold; padding: 5px; border-radius: 4px;",
-      );
     };
-
-    const timer = setTimeout(initLab, 0);
-    return () => clearTimeout(timer);
+    getInitialSecurity();
   }, []);
 
-  // ✅ 2. Real-time SQL Log + Debounce Fix
+  const fetchData = useCallback(async (currentSearch, currentLevel) => {
+    try {
+      const res = await fetch(
+        `/api/users?name=${encodeURIComponent(currentSearch)}`,
+      );
+      const data = await res.json();
+      if (data.executedQuery) setExecutedQuery(data.executedQuery);
+      if (res.ok) {
+        setUsers(data.users || []);
+      } else {
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isMounted) return;
-
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`/api/users?name=${searchTerm}`);
-        const data = await res.json();
-
-        // 🔥 FIX: อัปเดต SQL Log เสมอไม่ว่าจะ Status 200 หรือ 500
-        if (data.executedQuery) {
-          setExecutedQuery(data.executedQuery);
-        }
-
-        if (res.ok) {
-          setUsers(data.users || []);
-        } else {
-          setUsers([]); // ถ้าพัง (SQL Error) ให้ล้างตารางทิ้ง
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-      }
-    };
-
-    // ⏱️ Debounce: รอให้หยุดพิมพ์ 300ms ค่อยยิง API (ช่วยให้ระบบลื่นไหลขึ้น)
     const delayDebounce = setTimeout(() => {
-      fetchData();
+      fetchData(searchTerm, securityLevel);
     }, 300);
-
     return () => clearTimeout(delayDebounce);
-  }, [searchTerm, securityLevel, isMounted]);
+  }, [searchTerm, securityLevel, isMounted, fetchData]);
 
   const toggleSecurity = () => {
     const newLevel = securityLevel === "low" ? "high" : "low";
@@ -76,14 +62,35 @@ export default function UserDirectory() {
 
   return (
     <div className='min-h-screen bg-[#0a0f1e] text-slate-200 p-4 md:p-8 relative overflow-hidden font-sans'>
+      {/* 🚨 1. Vulnerability Warning Bar (แสดงเฉพาะโหมด LOW) */}
+      {securityLevel === "low" && (
+        <div className='fixed top-0 left-0 w-full z-[100] bg-red-600/20 backdrop-blur-md border-b border-red-500/50 py-1 overflow-hidden pointer-events-none'>
+          <div className='flex whitespace-nowrap animate-marquee gap-8 items-center'>
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className='flex items-center gap-4'>
+                <span className='text-red-500 text-[9px] font-black tracking-[0.3em] uppercase animate-pulse'>
+                  ⚠️ WARNING: SYSTEM VULNERABILITY DETECTED - SQL INJECTION
+                  EXPLOITABLE
+                </span>
+                <span className='text-red-500/30 font-mono text-[8px]'>
+                  [AUTH_BYPASS_RISK]
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 🌌 Background Glows */}
       <div className='fixed top-0 left-0 w-full h-full -z-10'>
         <div className='absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]'></div>
         <div className='absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px]'></div>
       </div>
 
-      <div className='max-w-5xl mx-auto space-y-6'>
-        {/* 📟 Header Section (Glassmorphism) */}
+      <div
+        className={`max-w-5xl mx-auto space-y-6 ${securityLevel === "low" ? "pt-8" : ""}`}
+      >
+        {/* 📟 Header Section */}
         <div className='backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2.5rem] p-6 flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl'>
           <div className='flex items-center gap-4'>
             <div className='w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-blue-600/20'>
@@ -102,10 +109,10 @@ export default function UserDirectory() {
           <div className='flex items-center gap-3 bg-black/20 p-2 rounded-2xl border border-white/5'>
             <button
               onClick={toggleSecurity}
-              className={`px-6 py-2 rounded-xl text-xs font-black transition-all active:scale-95 border ${
+              className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all active:scale-95 border ${
                 securityLevel === "low"
                   ? "bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
-                  : "bg-green-500/10 text-green-400 border-green-500/30"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
               }`}
             >
               MODE: {securityLevel.toUpperCase()}
@@ -120,7 +127,7 @@ export default function UserDirectory() {
         </div>
 
         {/* 🕵️ Live SQL Viewer (Terminal Style) */}
-        <div className='backdrop-blur-md bg-black/40 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl relative'>
+        <div className='backdrop-blur-md bg-black/40 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl'>
           <div className='bg-white/5 px-6 py-3 border-b border-white/5 flex justify-between items-center'>
             <span className='text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]'>
               Executed SQL Query (Backend Log)
@@ -131,10 +138,10 @@ export default function UserDirectory() {
               <div className='w-2 h-2 rounded-full bg-green-500/50'></div>
             </div>
           </div>
-          <div className='p-6 font-mono text-lg leading-relaxed flex items-start'>
+          <div className='p-6 font-mono text-base leading-relaxed flex items-start'>
             <span className='text-blue-500 mr-3 shrink-0'>❯</span>
-            <code className='text-green-400 break-all'>
-              {executedQuery || "Waiting for system command..."}
+            <code className='text-emerald-400 break-all'>
+              {executedQuery || "Awaiting system command..."}
             </code>
           </div>
         </div>
@@ -144,7 +151,7 @@ export default function UserDirectory() {
           <div className='relative mb-10 group'>
             <input
               type='text'
-              placeholder='Try: admin" OR "1"="1" -- หรือ ORDER BY...'
+              placeholder='Search by Subject Name (ลองใช้ SQL Injection Payload...)'
               className='w-full bg-black/20 border-2 border-white/5 rounded-2xl py-5 px-6 text-white text-lg placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner'
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -201,10 +208,10 @@ export default function UserDirectory() {
           </div>
 
           {users.length === 0 && (
-            <div className='text-center py-24 bg-black/10 rounded-[2rem] border border-dashed border-white/5'>
+            <div className='text-center py-20 bg-black/10 rounded-[2rem] border border-dashed border-white/5'>
               <div className='text-4xl mb-4 opacity-20'>📡</div>
-              <p className='text-slate-500 font-mono text-xs uppercase tracking-widest animate-pulse'>
-                Scanning database... No data records found
+              <p className='text-slate-500 font-mono text-[10px] uppercase tracking-widest animate-pulse'>
+                Scanning network... No records detected
               </p>
             </div>
           )}

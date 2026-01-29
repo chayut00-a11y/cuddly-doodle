@@ -2,7 +2,6 @@ import { initDB } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
-  // ✅ 1. ประกาศตัวแปร query ไว้ข้างนอกเพื่อให้บล็อก catch เข้าถึงได้
   let query = "";
 
   try {
@@ -15,64 +14,53 @@ export async function POST(req) {
       );
     }
 
+    // ✅ 1. ดึงโหมดความปลอดภัยจาก Cookie (สะพานเชื่อมหน้าบ้าน-หลังบ้าน)
+    const securityLevel = req.cookies.get("security_level")?.value || "low";
     const db = await initDB();
+    let user;
 
-    // ✅ 2. สร้างคำสั่ง SQL (แบบเปราะบางเพื่อการเรียนรู้)
-    query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+    // ✅ 2. แยก Logic ตามระดับความปลอดภัย
+    if (securityLevel === "low") {
+      // 🔴 MODE: LOW (ต่อ String ตรงๆ - โดน SQL Injection ได้)
+      query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+      user = await db.get(query);
+    } else {
+      // 🟢 MODE: HIGH (ใช้ Prepared Statements - ป้องกัน SQL Injection 100%)
+      // เราส่ง "โครงสร้าง" แยกกับ "ข้อมูล"
+      query = `SELECT * FROM users WHERE username = ? AND password = ?`;
+      user = await db.get(query, [username, password]);
+    }
 
-    console.log("Executing Query:", query);
-
-    const user = await db.get(query);
+    console.log(`[${securityLevel.toUpperCase()}] Executing:`, query);
 
     if (user) {
-      // ✅ กรณี Login สำเร็จ: แนบ executedQuery กลับไปด้วย
       const response = NextResponse.json({
         message: "Login Success",
         user: { username: user.username, role: user.role },
-        executedQuery: query, // 👈 ส่งไปโชว์ในกล่องดำ
+        executedQuery: query,
       });
 
-      // จัดการ Cookies (ตาม Logic เดิมของคุณ)
+      // จัดการ Cookies สำหรับ Session (คงเดิมของคุณ)
+      const cookieOptions = { path: "/", maxAge: 3600 };
       response.cookies.set("isLoggedIn", "true", {
-        path: "/",
+        ...cookieOptions,
         httpOnly: true,
-        maxAge: 3600,
       });
-      response.cookies.set("is_auth", "true", {
-        path: "/",
-        httpOnly: false,
-        maxAge: 3600,
-      });
-      response.cookies.set("role", user.role, {
-        path: "/",
-        httpOnly: false,
-        maxAge: 3600,
-      });
-      response.cookies.set("username", user.username, {
-        path: "/",
-        httpOnly: false,
-        maxAge: 3600,
-      });
+      response.cookies.set("is_auth", "true", cookieOptions);
+      response.cookies.set("role", user.role, cookieOptions);
+      response.cookies.set("username", user.username, cookieOptions);
 
       return response;
     } else {
-      // ❌ กรณี Login ไม่สำเร็จ (Invalid Credentials): ก็ยังส่ง executedQuery กลับไป
       return NextResponse.json(
-        {
-          message: "Invalid username or password",
-          executedQuery: query, // 👈 เพื่อให้ Hacker เห็นว่า Payload ตัวเองถูกแปลงเป็นแบบไหน
-        },
+        { message: "Invalid username or password", executedQuery: query },
         { status: 401 },
       );
     }
   } catch (error) {
-    // 🛠️ กรณี SQL พัง (Error 500): เช่น ใส่โควตาไม่ครบจน Syntax ผิด
     console.error("Database Error:", error.message);
     return NextResponse.json(
-      {
-        error: error.message,
-        executedQuery: query, // 👈 สำคัญมาก! เพื่อให้หน้าบ้านเห็น Query ตัวที่ทำให้พัง
-      },
+      { error: error.message, executedQuery: query },
       { status: 500 },
     );
   }
