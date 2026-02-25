@@ -99,14 +99,37 @@ user = await db.get(query, [username, password]);`,
         {/* Security Toggle */}
         <div className='flex justify-center gap-4'>
           <button
+            key={`security-${securityLevel}`} // บังคับให้เบราว์เซอร์ล้างสถานะเก่าแล้ววาดใหม่ทุกครั้งที่เปลี่ยนโหมด
             onClick={toggleSecurity}
-            className={`px-6 py-2 rounded-full text-[10px] font-black tracking-[0.2em] transition-all border shadow-lg ${
+            className={`relative flex items-center justify-center px-4 py-2.5 rounded-full border transition-all duration-300 shadow-lg group overflow-hidden ${
               securityLevel === "low"
-                ? "bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
+                ? "bg-red-500/10 text-red-400 border-red-500/30"
                 : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
             }`}
           >
-            SECURITY LEVEL: {securityLevel.toUpperCase()}
+            {/* ส่วนของไฟกระพริบ (แยกออกจากตัวหนังสือเพื่อไม่ให้ตัวหนังสือสั่นจนซ้อน) */}
+            {securityLevel === "low" && (
+              <div className='absolute inset-0 bg-red-500/5 animate-pulse'></div>
+            )}
+
+            <div className='relative flex items-center gap-2 font-mono'>
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${securityLevel === "low" ? "bg-red-500 animate-ping" : "bg-emerald-500"}`}
+              ></div>
+
+              {/* ข้อความ: ล็อกความกว้างขั้นต่ำ (min-w) เพื่อไม่ให้ตัวหนังสือเบียดกัน */}
+              <span className='text-[9px] sm:text-[10px] font-black uppercase tracking-wider whitespace-nowrap min-w-[100px] sm:min-w-[140px] text-center'>
+                {isMounted ? (
+                  <>
+                    <span className='hidden sm:inline'>SECURITY LEVEL: </span>
+                    <span className='sm:hidden'>SEC: </span>
+                    {securityLevel.toUpperCase()}
+                  </>
+                ) : (
+                  "LOADING..."
+                )}
+              </span>
+            </div>
           </button>
           <button
             onClick={() => setShowInfo(true)}
