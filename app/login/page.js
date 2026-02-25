@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [executedQuery, setExecutedQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [securityLevel, setSecurityLevel] = useState("low");
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -29,6 +30,15 @@ export default function LoginPage() {
     const newLevel = securityLevel === "low" ? "high" : "low";
     setSecurityLevel(newLevel);
     document.cookie = `security_level=${newLevel}; Path=/; max-age=3600`;
+  };
+
+  const codeSnippets = {
+    low: `// 🔴 MODE: LOW (Vulnerable)
+query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'";
+user = await db.get(query);`,
+    high: `// 🟢 MODE: HIGH (Secure)
+query = "SELECT * FROM users WHERE username = ? AND password = ?";
+user = await db.get(query, [username, password]);`,
   };
 
   const handleLogin = async (e) => {
@@ -87,7 +97,7 @@ export default function LoginPage() {
 
       <div className='w-full max-w-md space-y-8'>
         {/* Security Toggle */}
-        <div className='flex justify-center'>
+        <div className='flex justify-center gap-4'>
           <button
             onClick={toggleSecurity}
             className={`px-6 py-2 rounded-full text-[10px] font-black tracking-[0.2em] transition-all border shadow-lg ${
@@ -98,7 +108,104 @@ export default function LoginPage() {
           >
             SECURITY LEVEL: {securityLevel.toUpperCase()}
           </button>
+          <button
+            onClick={() => setShowInfo(true)}
+            className='w-10 h-10 rounded-full border border-blue-500/30 bg-blue-500/10 flex items-center justify-center text-blue-400 hover:bg-blue-500/20 transition-all hover:scale-110 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+          >
+            <span className='font-mono font-bold'>i</span>
+          </button>
         </div>
+
+        {showInfo && (
+          <div className='fixed inset-0 z-[150] flex items-center justify-center p-4 animate-in fade-in duration-500'>
+            {/* 🌌 Background Overlay (ปรับให้โปร่งขึ้นและเบลอฉากหลังมากขึ้น) */}
+            <div
+              className='absolute inset-0 bg-black/40 backdrop-blur-md' // <-- แก้จาก bg-black/80 เป็น /40 และเพิ่ม blur-md
+              onClick={() => setShowInfo(false)}
+            ></div>
+
+            {/* 📋 Modal Content (พระเอกของเรา: กระจกฝ้าโปร่งแสง) */}
+            <div className='relative w-full max-w-2xl bg-[#0d1117]/70 backdrop-blur-2xl border border-blue-500/20 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-300'>
+              {/* ^-- จุดแก้สำคัญ:
+          1. bg-[#0d1117]/70 : เพิ่ม opacity 70% ให้สีพื้นหลัง
+          2. backdrop-blur-2xl : เพิ่มการเบลอระดับสูงสุดเพื่อให้ดูเหมือนกระจกหนาๆ
+          3. rounded-[2.5rem] : เพิ่มความโค้งมนให้ดูทันสมัยขึ้นเข้ากับกระจก
+      */}
+
+              {/* Header ของ Popup */}
+              <div className='bg-blue-500/10 px-6 py-4 border-b border-white/10 flex justify-between items-center'>
+                <div className='flex items-center gap-3'>
+                  <div className='flex gap-1.5'>
+                    {/* ปรับปุ่มให้ดูใสขึ้นนิดหน่อย */}
+                    <div className='w-3 h-3 rounded-full bg-red-500/60'></div>
+                    <div className='w-3 h-3 rounded-full bg-yellow-500/60'></div>
+                    <div className='w-3 h-3 rounded-full bg-green-500/60'></div>
+                  </div>
+                  <span className='text-[10px] font-mono text-blue-400/90 uppercase tracking-[0.2em]'>
+                    System_Logic_Viewer v1.0
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowInfo(false)}
+                  className='w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-500 hover:text-white transition-all'
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Code Display Area */}
+              <div className='p-8'>
+                <div className='mb-5 flex items-center justify-between'>
+                  <h3 className='text-sm font-bold text-white uppercase tracking-wider'>
+                    Backend Implementation:{" "}
+                    <span
+                      className={
+                        securityLevel === "low"
+                          ? "text-red-400 drop-shadow-[0_0_10px_rgba(248,113,113,0.5)]"
+                          : "text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]"
+                      }
+                    >
+                      {securityLevel.toUpperCase()}
+                    </span>
+                  </h3>
+                  <span className='text-[9px] font-mono text-slate-500/80'>
+                    app/api/login/route.js
+                  </span>
+                </div>
+
+                <div className='relative group'>
+                  {/* ปรับพื้นหลังส่วนแสดงโค้ดให้โปร่งแสงตาม */}
+                  <pre className='p-6 bg-black/40 rounded-3xl font-mono text-xs leading-relaxed text-blue-100 border border-white/10 overflow-x-auto shadow-inner'>
+                    {/* ^-- จุดแก้: ใช้ bg-black/40 และเพิ่มความโค้งมน */}
+                    <code>
+                      {securityLevel === "low"
+                        ? `// 🔴 MODE: LOW (ต่อ String ตรงๆ)
+const query = \`SELECT * FROM users
+               WHERE username = '\${username}'
+               AND password = '\${password}'\`;
+
+// ⚠️ ผลลัพธ์: โดน SQL Injection ได้ง่ายๆ`
+                        : `// 🟢 MODE: HIGH (ใช้ Prepared Statements)
+const query = "SELECT * FROM users WHERE username = ? AND password = ?";
+const user = await db.get(query, [username, password]);
+
+// ✅ ผลลัพธ์: ปลอดภัย 100%`}
+                    </code>
+                  </pre>
+                </div>
+
+                {/* 💡 Hint สำหรับผู้เล่น */}
+                <div className='mt-6 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl'>
+                  <p className='text-[11px] text-blue-300/80 italic leading-relaxed'>
+                    {securityLevel === "low"
+                      ? "💡 Hint: ลองใช้รหัสผ่านเป็น ' OR 1=1 -- เพื่อทำการบายพาสการตรวจสอบ"
+                      : "💡 Info: ระบบจะแยก 'ข้อมูล' ออกจาก 'คำสั่ง' ทำให้แฮกเกอร์แทรกคำสั่งเพิ่มไม่ได้"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className='backdrop-blur-2xl bg-white/5 border border-white/10 rounded-[2.5rem] p-10 shadow-2xl relative'>
           <div className='text-center mb-10'>
