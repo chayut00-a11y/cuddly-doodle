@@ -50,7 +50,7 @@ export default function UserDirectory() {
   const toggleSecurity = () => {
     const newLevel = securityLevel === "low" ? "high" : "low";
     setSecurityLevel(newLevel);
-    document.cookie = `security_level=${newLevel}; Path=/; max-age=3600`;
+    document.cookie = `security_level=${newLevel}; Path=/; max-age=3600; Secure; SameSite=Strict`;
   };
 
   const handleLogout = async () => {
