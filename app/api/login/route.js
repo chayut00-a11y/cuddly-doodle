@@ -16,6 +16,7 @@ export async function POST(req) {
 
     // ✅ 1. ดึงโหมดความปลอดภัยจาก Cookie (สะพานเชื่อมหน้าบ้าน-หลังบ้าน)
     const securityLevel = req.cookies.get("security_level")?.value || "low";
+    /** @type {import('sqlite3').Database} */
     const db = await initDB();
     let user;
 
@@ -31,8 +32,12 @@ export async function POST(req) {
       user = await db.get(query, [username, password]);
     }
 
-    console.log(`[${securityLevel.toUpperCase()}] Executing:`, query);
-
+    console.log(
+      "[Security Level:",
+      securityLevel.toUpperCase(),
+      "] Executing:",
+      query,
+    );
     if (user) {
       const response = NextResponse.json({
         message: "Login Success",
